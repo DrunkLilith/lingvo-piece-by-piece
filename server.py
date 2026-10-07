@@ -3,22 +3,20 @@ import random
 import json
 
 from flask import Flask, render_template, redirect, request, session
-from flask_login import (
-    LoginManager,
-    login_user,
-    login_required,
-    logout_user,
-)
 
 from data import db_session
-from data.users import User
 from data.animals import Animal
 from data.ModeOne import ModeOne
 from data.ModeTwo import ModeTwo
 
+from utils import api
+
 
 class Task:
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         session["current_question"] = 0
         session["count_wrong_answer"] = 0
         session["mode_value"] = 0
@@ -144,28 +142,23 @@ class Task:
 
     def check_answer_animal(self, user_input):
         name_animal = session.get("name_animal")
-        user_points_mode1 = session.get("user_points_mode1")
-        user_points_mode2 = session.get("user_points_mode2")
         mode_value = session.get("mode_value")
-        if user_input.lower().strip() == name_animal:
-            # db_sess = db_session.create_session()
-            # user = db_sess.query(User).filter(User.id == current_user.id).first()
-            # if mode_value == 1:
-            #     user.user_points_mode1 += user_points_mode1
-            # elif mode_value == 2:
-            #     user.user_points_mode2 += user_points_mode2
-            # db_sess.commit()
+        if user_input and user_input.lower().strip() == name_animal:
+            # зачисление баллов за уровень через игровую сессию портала
+            points = session.get("user_points_mode1" if mode_value == 1 else "user_points_mode2", 0)
+            if points > 0 and session.get("game_session_id"):
+                try:
+                    api.add_points(points)
+                except api.ApiError as e:
+                    print(f"Не удалось начислить баллы: {e}")
             return True
-
-
-login_manager = LoginManager()
+        return False
 
 
 def create_app():
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = "yandexlyceum_secret_key"
-    login_manager.init_app(app)
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "yandexlyceum_secret_key")
     db_session.global_init("db/DataBase.db")
 
     return app
@@ -173,18 +166,26 @@ def create_app():
 
 app = create_app()
 
+task = None
 
-@login_manager.user_loader
-def load_user(user_id):
-    db_sess = db_session.create_session()
-    return db_sess.query(User).get(user_id)
 
+def ensure_task():
+    """Ленивая инициализация состояния игры (в контексте запроса)."""
+    global task
+    if task is None:
+        task = Task()
+    return task
 
 @app.route("/")
+@app.route("/start")
 @app.route("/index")
 def index():
     global task
-    task = Task()
+    task = ensure_task()
+    task.reset()
+    # игровая сессия портала: iframe передаёт ?session=<id>
+    session["game_session_id"] = None
+    api.get_game_session_id()
     return render_template("main_window_piece_by_piece.html")
 
 
@@ -193,33 +194,9 @@ def rules():
     return render_template("rules.html")
 
 
-USER_DATA = {"name": "TEST", "password": "TEST_PASSWORD"}
-
-
-def commit_user():
-    db_sess = db_session.create_session()
-
-    user = User(
-        name=USER_DATA["name"],
-    )
-
-    user.set_password(USER_DATA["password"])
-    db_sess.add(user)
-    db_sess.commit()
-    login_user(user)
-
-    return redirect("/select_level")
-
-
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    return redirect("/")
-
-
 @app.route("/select_level", methods=["GET", "POST"])
 def select_level():
+    ensure_task()
     if request.method == "POST":
         selected_mode = request.form.get("btn")
 
@@ -241,13 +218,18 @@ def select_level():
 def mode_one():
     current_question = session.get("current_question")
 
-    lst_tasks = json.loads(session.get("lst_tasks", []))
-    lst_imgs = json.loads(session.get("lst_imgs", []))
+    raw_tasks = session.get("lst_tasks", [])
+    lst_tasks = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
+    raw_imgs = session.get("lst_imgs", [])
+    lst_imgs = json.loads(raw_imgs) if isinstance(raw_imgs, str) else raw_imgs
     count_wrong_answer = session.get("count_wrong_answer")
     name_animal = session.get("name_animal")
     user_points_mode1 = session.get("user_points_mode1")
     current_hint = session.get("current_hint")
-    list_button_text_mode1 = json.loads(session.get("list_button_text_mode1"))
+    raw_buttons = session.get("list_button_text_mode1", "[]")
+    list_button_text_mode1 = (
+        json.loads(raw_buttons) if isinstance(raw_buttons, str) else raw_buttons
+    )
     if current_question < len(lst_tasks):
         question = lst_tasks[current_question][0]
 
@@ -387,8 +369,10 @@ def mode_one():
 @app.route("/mode_two", methods=["GET", "POST"])
 def mode_two():
     current_question = session.get("current_question")
-    lst_tasks = json.loads(session.get("lst_tasks", []))
-    lst_imgs = json.loads(session.get("lst_imgs", []))
+    raw_tasks = session.get("lst_tasks", [])
+    lst_tasks = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
+    raw_imgs = session.get("lst_imgs", [])
+    lst_imgs = json.loads(raw_imgs) if isinstance(raw_imgs, str) else raw_imgs
     user_points_mode2 = session.get("user_points_mode2")
     count_wrong_answer = session.get("count_wrong_answer")
 
@@ -487,6 +471,7 @@ def mode_two():
             )
 
     if request.method == "GET":
+        user_points_mode2 = user_points_mode2 or 105
         user_input = request.args.get("animal")
 
         if user_input is not None:
@@ -502,19 +487,23 @@ def mode_two():
                 user_points_mode2 = 0
             session["user_points_mode2"] = user_points_mode2
 
-        name_animal = session.get("name_animal")
-        user_points_mode2 = int(session.get("user_points_mode2"))
-        current_hint = int(session.get("current_hint"))
-        btn_hint_text = session.get("btn_hint_text")
-        hint_text = session.get("hint_text")
-        list_button_img_mode2 = json.loads(session.get("list_button_img_mode2"))
-        lst_imgs = json.loads(session.get("lst_imgs"))
-        current_question = int(session.get("current_question"))
-        lst_tasks = json.loads(session.get("lst_tasks"))
-        audio = session.get("audio")
 
-        print(audio)
-        print(lst_imgs)
+        name_animal = session.get("name_animal") or ""
+        user_points_mode2 = int(session.get("user_points_mode2") or 105)
+        current_hint = int(session.get("current_hint") or 0)
+        btn_hint_text = session.get("btn_hint_text") or "Подсказка"
+        hint_text = session.get("hint_text") or ""
+        raw_imgs = session.get("list_button_img_mode2", "[]")
+        list_button_img_mode2 = (
+            json.loads(raw_imgs) if isinstance(raw_imgs, str) else raw_imgs
+        )
+        raw_imgs2 = session.get("lst_imgs", "[]")
+        lst_imgs = json.loads(raw_imgs2) if isinstance(raw_imgs2, str) else raw_imgs2
+        current_question = int(session.get("current_question") or 0)
+        raw_tasks = session.get("lst_tasks", "[]")
+        lst_tasks = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
+        audio = session.get("audio") or ""
+
         return render_template(
             "mode_two.html",
             question="Послушай диктора и выбери названную им фигуру",
@@ -529,52 +518,6 @@ def mode_two():
             hint_text=hint_text,
             btn_hint_text=btn_hint_text,
         )
-
-    name_animal = session.get("name_animal")
-    user_points_mode2 = int(session.get("user_points_mode2"))
-    current_hint = int(session.get("current_hint"))
-    btn_hint_text = session.get("btn_hint_text")
-    hint_text = session.get("hint_text")
-    list_button_img_mode2 = json.loads(session.get("list_button_img_mode2"))
-    lst_imgs = json.loads(session.get("lst_imgs"))
-    current_question = int(session.get("current_question"))
-    lst_tasks = json.loads(session.get("lst_tasks"))
-    audio = session.get("audio")
-
-    print(audio)
-    print(lst_imgs)
-    return render_template(
-        "mode_two.html",
-        question="Послушай диктора и выбери названную им фигуру",
-        btn_imges=list_button_img_mode2,
-        file_imgs=lst_imgs,
-        user_points=user_points_mode2,
-        correct_audio=audio,
-        correct_question=current_question,
-        len_lst_tasks=len(lst_tasks),
-        name_animal=name_animal,
-        curent_hint=current_hint,
-        hint_text=hint_text,
-        btn_hint_text=btn_hint_text,
-    )
-
-
-@app.route("/leader_board")
-def leader_board():
-    db_sess = db_session.create_session()
-    users = db_sess.query(User).all()
-
-    user_points = [
-        (user.user_points_mode1 + user.user_points_mode2, user) for user in users
-    ]
-
-    sorted_users = sorted(user_points, key=lambda x: x[0], reverse=True)
-
-    enumerated_users = [
-        (index + 1, user) for index, (_, user) in enumerate(sorted_users)
-    ]
-    return render_template("leader_board.html", users=enumerated_users)
-
 
 # for local develop
 if __name__ == "__main__":

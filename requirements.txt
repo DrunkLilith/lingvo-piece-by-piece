@@ -1,7 +1,5 @@
-SQLAlchemy
-werkzeug
-wtforms
-flask
-flask_wtf
-flask_login
-flask-cors
+flask==3.1.2
+sqlalchemy==2.0.46
+requests==2.32.5
+gunicorn==23.0.0
+flask-login==0.6.3
