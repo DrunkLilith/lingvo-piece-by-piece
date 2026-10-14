@@ -193,9 +193,11 @@ def index():
     global task
     task = ensure_task()
     task.reset()
-    # игровая сессия портала: iframe передаёт ?session=<id>
-    session["game_session_id"] = None
-    api.get_game_session_id()
+    # Игровая сессия портала принимается только после проверки HMAC в API.
+    try:
+        api.get_game_session()
+    except api.ApiError as exc:
+        return f"Игровая сессия отклонена: {exc}", 401
     return render_template("main_window_piece_by_piece.html")
 
 

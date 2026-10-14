@@ -24,6 +24,9 @@
             </div>
         </div>
         <a class="navbar-brand" href="#">{{user_points}}</a>
+        {% if session.get('portal_user_name') %}
+        <span class="navbar-text text-white">{{ session['portal_user_name'] }}</span>
+        {% endif %}
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>

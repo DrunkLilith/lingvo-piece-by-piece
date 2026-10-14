@@ -20,8 +20,15 @@
                     <img src="static/img/ava.png">
                 </a>
             <div class="dropdown-menu" aria-labelledby="avatarDropdown">
+                {% if session.get('portal_user_name') %}
+                <span class="dropdown-item-text">{{ session['portal_user_name'] }}</span>
+                <span class="dropdown-item-text">{{ session.get('portal_total_points', 0) }} очков</span>
+                {% endif %}
                 <a class="dropdown-item" href="{{ url_for('rules') }}">Правила</a>
             </div>
+            {% if session.get('portal_user_name') %}
+            <span class="navbar-text text-white">{{ session['portal_user_name'] }}</span>
+            {% endif %}
      
             </div>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
