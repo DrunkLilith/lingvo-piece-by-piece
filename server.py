@@ -2,7 +2,8 @@ import os
 import random
 import json
 
-from flask import Flask, render_template, redirect, request, session
+from flask import Flask, render_template, redirect, request, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from data import db_session
 from data.animals import Animal
@@ -159,6 +160,15 @@ def create_app():
     app = Flask(__name__)
 
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "yandexlyceum_secret_key")
+    path_base = os.environ.get("GAME_PATH_BASE", "").rstrip("/")
+    app.config["APPLICATION_ROOT"] = path_base or "/"
+    app.config["SESSION_COOKIE_PATH"] = path_base or "/"
+    app.config["SESSION_COOKIE_NAME"] = os.environ.get(
+        "GAME_COOKIE_NAME", "lingvogameos_piece_session"
+    )
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+    )
     db_session.global_init("db/DataBase.db")
 
     return app
@@ -204,12 +214,12 @@ def select_level():
             session["mode_value"] = 1
             task.get_all_from_task()
             task.update_level()
-            return redirect("/mode_one")
+            return redirect(url_for("mode_one"))
         elif selected_mode == "2":
             session["mode_value"] = 2
             task.get_all_from_task()
             task.update_level()
-            return redirect("/mode_two")
+            return redirect(url_for("mode_two"))
 
     return render_template("select_level.html")
 
@@ -245,7 +255,7 @@ def mode_one():
             user_input = request.form.get("animal")
             flag_animal = task.check_answer_animal(user_input)
             if flag_animal:
-                return redirect("/select_level")
+                return redirect(url_for("select_level"))
             else:
                 user_points_mode1 -= 5
                 if user_points_mode1 < 0:
@@ -336,7 +346,7 @@ def mode_one():
         if user_input is not None:
             flag_animal = task.check_answer_animal(user_input)
             if flag_animal:
-                return redirect("/select_level")
+                return redirect(url_for("select_level"))
             else:
                 user_points_mode1 -= 5
                 session["user_points_mode1"] = user_points_mode1
@@ -385,7 +395,7 @@ def mode_two():
             user_input = request.form.get("animal")
             flag_animal = task.check_answer_animal(user_input)
             if flag_animal:
-                return redirect("/select_level")
+                return redirect(url_for("select_level"))
             else:
                 user_points_mode2 -= 5
                 if user_points_mode2 < 0:
@@ -477,7 +487,7 @@ def mode_two():
         if user_input is not None:
             flag_animal = task.check_answer_animal(user_input)
             if flag_animal:
-                return redirect("/select_level")
+                return redirect(url_for("select_level"))
             else:
                 user_points_mode2 -= 5
                 session["user_points_mode2"] = user_points_mode2

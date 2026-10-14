@@ -19,7 +19,7 @@
                 <img src="static/img/ava.png">
             </a>
             <div class="dropdown-menu" aria-labelledby="avatarDropdown">
-                <a class="dropdown-item" href="/">На главную</a>
+                <a class="dropdown-item" href="{{ url_for('index') }}">На главную</a>
             </div>
         </div>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -29,7 +29,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">На главную</a>
+                    <a class="nav-link" href="{{ url_for('index') }}">На главную</a>
                 </li>
             </ul>
         </div>
@@ -48,7 +48,7 @@
             как и буквы 'хъ', 'къ'.</p>
     </div>
     <div class="main-back-main">
-        <a class="btn btn-secondary" href="/">Вернуться</a>
+        <a class="btn btn-secondary" href="{{ url_for('index') }}">Вернуться</a>
     </div>
 
 </div>

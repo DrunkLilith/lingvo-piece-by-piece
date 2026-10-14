@@ -20,7 +20,7 @@
                     <img src="static/img/ava.png">
                 </a>
             <div class="dropdown-menu" aria-labelledby="avatarDropdown">
-                <a class="dropdown-item" href="/rules">Правила</a>
+                <a class="dropdown-item" href="{{ url_for('rules') }}">Правила</a>
             </div>
      
             </div>
@@ -32,10 +32,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href="/select_level">Выбрать уровень</a>
+                        <a class="nav-link" href="{{ url_for('select_level') }}">Выбрать уровень</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/rules">Правила</a>
+                        <a class="nav-link" href="{{ url_for('rules') }}">Правила</a>
                     </li>
                 </ul>
             </div>
@@ -49,10 +49,10 @@
         <p>Используя слова на осетинком языке, попытайся собрать животное по частям</p>
     </div>
     <div class="main-rules">
-        <a class="btn btn-secondary" href="/rules">Правила</a>
+        <a class="btn btn-secondary" href="{{ url_for('rules') }}">Правила</a>
     </div>
     <div class="main-buttons-container">
-        <a class="btn btn-primary w-100" href="/select_level">Играть</a>
+        <a class="btn btn-primary w-100" href="{{ url_for('select_level') }}">Играть</a>
     </div>
 
 </div>
